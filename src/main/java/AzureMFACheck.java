@@ -1,12 +1,18 @@
-import com.amazonaws.regions.Regions;
 
 import com.microsoft.azure.AzureEnvironment;
 import com.microsoft.azure.credentials.ApplicationTokenCredentials;
 import com.microsoft.azure.management.Azure;
+import com.microsoft.graph.auth.confidentialClient.ClientCredentialProvider;
+import com.microsoft.graph.auth.enums.NationalCloud;
+import com.microsoft.graph.models.extensions.DirectoryObject;
+import com.microsoft.graph.models.extensions.DirectoryRole;
+import com.microsoft.graph.models.extensions.IGraphServiceClient;
+import com.microsoft.graph.requests.extensions.GraphServiceClient;
+import com.microsoft.graph.requests.extensions.IDirectoryObjectCollectionWithReferencesPage;
+import com.microsoft.graph.requests.extensions.IDirectoryRoleCollectionPage;
 import com.microsoft.rest.LogLevel;
 import com.tmobile.cloud.awsrules.utils.PacmanUtils;
 import com.tmobile.cloud.constants.PacmanRuleConstants;
-import com.tmobile.pacman.commons.AWSService;
 import com.tmobile.pacman.commons.PacmanSdkConstants;
 import com.tmobile.pacman.commons.exception.InvalidInputException;
 import com.tmobile.pacman.commons.rule.Annotation;
@@ -30,10 +36,7 @@ import org.slf4j.MDC;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @PacmanRule(key = "azure-mfa-evaluation", desc = "Check whether MFA is enabled for Global/ Account Level Administrators.", severity = PacmanSdkConstants.SEV_HIGH, category = PacmanSdkConstants.SECURITY)
 public class AzureMFACheck extends BaseRule {
@@ -56,7 +59,6 @@ public class AzureMFACheck extends BaseRule {
 
 		Map<String, String> ruleParamIam = new HashMap<>();
 		ruleParamIam.putAll(ruleParam);
-		ruleParamIam.put(PacmanSdkConstants.REGION, Regions.DEFAULT_REGION.getName());
 
 		Map<String, Object> map = null;
 		Azure azureClient = null;
@@ -75,35 +77,45 @@ public class AzureMFACheck extends BaseRule {
 			throw new InvalidInputException(PacmanRuleConstants.MISSING_CONFIGURATION);
 		}
 
-//		IGraphServiceClient graphClient = GraphServiceClient.builder().authenticationProvider((IAuthenticationProvider) authorizationCodeProvider).buildClient();
+		ClientCredentialProvider authorizationCodeProvider =
+				new ClientCredentialProvider(
+						CLIENT_ID,
+						Arrays.asList("https://graph.microsoft.com/.default"),
+						CLIENT_SECRET,
+						TENANT,
+						NationalCloud.Global
+				);
 
+
+		IGraphServiceClient graphClient = GraphServiceClient.builder().authenticationProvider(authorizationCodeProvider).buildClient();
 
 		try {
-			ApplicationTokenCredentials credentials = new ApplicationTokenCredentials(
-					"5883638a-eea1-4ef2-ab57-b4c8547f2696",
-					"5c661468-61e8-450a-9561-52f21b84afa8",
-					"",
-					AzureEnvironment.AZURE);
+			IDirectoryRoleCollectionPage directoryRoleCollectionPage = graphClient.directoryRoles().buildRequest().get();
+			for (DirectoryRole role : directoryRoleCollectionPage.getCurrentPage()) {
+				if (role.displayName.toLowerCase().contains("administrator")) {
+					IDirectoryObjectCollectionWithReferencesPage members = graphClient.directoryRoles(role.id).members()
+							.buildRequest()
+							.get();
 
-			azureClient = Azure
-					.configure()
-					.withLogLevel(LogLevel.NONE)
-					.authenticate(credentials)
-					.withDefaultSubscription();
+					for (DirectoryObject object : members.getCurrentPage()) {
+						if(!isMFAEnabled(object.getRawObject().get("id").getAsString())) {
+							logger.error("");
+							return new RuleResult(PacmanSdkConstants.STATUS_FAILURE, PacmanRuleConstants.FAILED_MESSAGE);
+						}
+					}
+				}
+			}
 		} catch (Exception e) {
-			logger.error(PacmanRuleConstants.UNABLE_TO_GET_CLIENT, e);
-			throw new InvalidInputException(PacmanRuleConstants.UNABLE_TO_GET_CLIENT, e);
+			logger.error("PERMISSIONS ERROR - FAILED TO GET INFO 403, CHECK GRAPH API PERMISSIONS ", e);
+			return new RuleResult(PacmanSdkConstants.STATUS_FAILURE, PacmanRuleConstants.FAILED_MESSAGE);
 		}
-		annotation = Annotation.buildAnnotation(ruleParam, Annotation.Type.ISSUE);
-
-
 
 		return new RuleResult(PacmanSdkConstants.STATUS_SUCCESS, PacmanRuleConstants.SUCCESS_MESSAGE);
 	}
 
 	@Override
 	public String getHelpText() {
-		return null;
+		return "Check whether MFA is enabled for Global/ Account Level Administrators";
 	}
 
 	public static void getAuthToken(){
@@ -151,7 +163,6 @@ public class AzureMFACheck extends BaseRule {
 
 			if(userValues.get("isMfaRegistered").equals("true"))
 				return true;
-
 
 		} catch (Exception e ){
 			System.out.println("Neither tenant is B2C or tenant doesn't have premium license possibly");
