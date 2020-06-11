@@ -55,14 +55,14 @@ public class CheckAdminMFAEnabled extends BaseRule {
 		try {
 			identityManagementClient = (AmazonIdentityManagementClient)
 					getClientFor(AWSService.IAM, roleIdentifyingString, ruleParamIam)
-					.get(PacmanSdkConstants.CLIENT);
+							.get(PacmanSdkConstants.CLIENT);
 		} catch (Exception e) {
 			logger.error(PacmanRuleConstants.UNABLE_TO_GET_CLIENT, e);
 			throw new InvalidInputException(PacmanRuleConstants.UNABLE_TO_GET_CLIENT, e);
 		}
 
 
-		annotation = Annotation.buildAnnotation(ruleParam,Annotation.Type.ISSUE);
+		annotation = Annotation.buildAnnotation(ruleParam, Annotation.Type.ISSUE);
 
 		List<UserDetail> userDetails = identityManagementClient.getAccountAuthorizationDetails().getUserDetailList();
 		List<UserDetail> adminUsers = new ArrayList<>();
@@ -74,17 +74,17 @@ public class CheckAdminMFAEnabled extends BaseRule {
 		logger.debug("=== FOUND " + adminUsers.size() + "  ADMINS IN ACCOUNT ===");
 
 		boolean hasFailed = false;
-		for(UserDetail admin : adminUsers)
+		for (UserDetail admin : adminUsers)
 			if (identityManagementClient.listMFADevices(
 					new ListMFADevicesRequest().withUserName(admin.getUserName()))
-				.getMFADevices().isEmpty()) {
+					.getMFADevices().isEmpty()) {
 				hasFailed = true;
 				annotation.put(PacmanRuleConstants.ISSUE, "Admin " + admin.getUserName() + " has no MFA devices!");
 			}
 
 		logger.debug("======== Global Admin MFA Account Check Started =========");
 
-		if(hasFailed)
+		if (hasFailed)
 			return new RuleResult(PacmanSdkConstants.STATUS_FAILURE, PacmanRuleConstants.FAILURE_MESSAGE);
 
 
@@ -99,13 +99,15 @@ public class CheckAdminMFAEnabled extends BaseRule {
 
 	public boolean userHasAdminOrAttachedPolicy(UserDetail user) {
 
-		for (PolicyDetail policy : user.getUserPolicyList())
-			if (policy.equals(admin_access))
-				return true;
+		if (user.getUserPolicyList() != null)
+			for (PolicyDetail policy : user.getUserPolicyList())
+				if (policy.equals(admin_access))
+					return true;
 
-		for (AttachedPolicy attachedPolicy : user.getAttachedManagedPolicies())
-			if (attachedPolicy.equals(admin_access))
-				return true;
+		if (user.getAttachedManagedPolicies() != null)
+			for (AttachedPolicy attachedPolicy : user.getAttachedManagedPolicies())
+				if (attachedPolicy.equals(admin_access))
+					return true;
 
 		return false;
 	}
@@ -113,18 +115,25 @@ public class CheckAdminMFAEnabled extends BaseRule {
 	public boolean userHasAdminFromGroup(UserDetail user, AmazonIdentityManagementClient client) {
 		List<String> userGroupList = user.getGroupList();
 
-		for (String group : userGroupList) {
-			for (String policy : client.listGroupPolicies(
-					new ListGroupPoliciesRequest().withGroupName(group)).getPolicyNames())
-				if (policy.equals(admin_access))
-					return true;
+		if (userGroupList != null)
+			for (String group : userGroupList) {
+				if(client.listGroupPolicies(
+						new ListGroupPoliciesRequest().withGroupName(group)).getPolicyNames() != null)
+					for (String policy : client.listGroupPolicies(
+							new ListGroupPoliciesRequest().withGroupName(group)).getPolicyNames())
+						if (policy.equals(admin_access))
+							return true;
 
-			for (AttachedPolicy attachedPolicy : client.listAttachedGroupPolicies(
-					new ListAttachedGroupPoliciesRequest().withGroupName(group)).
-					getAttachedPolicies())
-				if (attachedPolicy.equals(admin_access))
-					return true;
-		}
+
+				if (client.listAttachedGroupPolicies(
+						new ListAttachedGroupPoliciesRequest().withGroupName(group)).
+						getAttachedPolicies() != null)
+					for (AttachedPolicy attachedPolicy : client.listAttachedGroupPolicies(
+							new ListAttachedGroupPoliciesRequest().withGroupName(group)).
+							getAttachedPolicies())
+						if (attachedPolicy.equals(admin_access))
+							return true;
+			}
 
 		return false;
 	}
@@ -134,8 +143,6 @@ public class CheckAdminMFAEnabled extends BaseRule {
 	public String getHelpText() {
 		return "Check whether MFA is enabled for Global/ Account Level Administrators.";
 	}
-
-
 
 
 }

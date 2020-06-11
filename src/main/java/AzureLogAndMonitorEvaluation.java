@@ -48,8 +48,9 @@ public class AzureLogAndMonitorEvaluation extends BaseRule {
 		Azure client = AzureCredentialManager.authenticate(resourceAttributes.get(PacmanRuleConstants.AZURE_SUBSCRIPTION));
 
 
+		logger.debug("======== Azure Policy Evaluation Rule started =========");
 
-		return null;
+		return new RuleResult(PacmanSdkConstants.STATUS_SUCCESS, PacmanRuleConstants.SUCCESS_MESSAGE);
 	}
 
 	@Override
