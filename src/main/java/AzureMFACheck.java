@@ -55,14 +55,15 @@ public class AzureMFACheck extends BaseRule {
 
 	@Override
 	public RuleResult execute(Map<String, String> ruleParam, Map<String, String> resourceAttributes) {
+		getAuthToken();
+
 		logger.debug("======== Global Azure Admin MFA Account Check Started =========");
 
 		Map<String, String> ruleParamIam = new HashMap<>();
 		ruleParamIam.putAll(ruleParam);
 
+
 		Map<String, Object> map = null;
-		Azure azureClient = null;
-		String roleIdentifyingString = ruleParam.get(PacmanSdkConstants.Role_IDENTIFYING_STRING);
 
 		String severity = ruleParam.get(PacmanRuleConstants.SEVERITY);
 		String category = ruleParam.get(PacmanRuleConstants.CATEGORY);
@@ -92,6 +93,7 @@ public class AzureMFACheck extends BaseRule {
 		try {
 			IDirectoryRoleCollectionPage directoryRoleCollectionPage = graphClient.directoryRoles().buildRequest().get();
 			for (DirectoryRole role : directoryRoleCollectionPage.getCurrentPage()) {
+
 				if (role.displayName.toLowerCase().contains("administrator")) {
 					IDirectoryObjectCollectionWithReferencesPage members = graphClient.directoryRoles(role.id).members()
 							.buildRequest()
@@ -105,6 +107,7 @@ public class AzureMFACheck extends BaseRule {
 					}
 				}
 			}
+
 		} catch (Exception e) {
 			logger.error("PERMISSIONS ERROR - FAILED TO GET INFO 403, CHECK GRAPH API PERMISSIONS ", e);
 			return new RuleResult(PacmanSdkConstants.STATUS_FAILURE, PacmanRuleConstants.FAILED_MESSAGE);

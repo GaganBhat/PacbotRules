@@ -46,7 +46,7 @@ public class AzureLogAndMonitorEvaluation extends BaseRule {
 		annotation.put(PacmanRuleConstants.AZURE_SUBSCRIPTION_NAME, resourceAttributes.get(PacmanRuleConstants.AZURE_SUBSCRIPTION_NAME));
 
 		Azure client = AzureCredentialManager.authenticate(resourceAttributes.get(PacmanRuleConstants.AZURE_SUBSCRIPTION));
-
+		client.accessManagement().activeDirectoryUsers().inner().list().get(0);
 
 		logger.debug("======== Azure Policy Evaluation Rule started =========");
 
