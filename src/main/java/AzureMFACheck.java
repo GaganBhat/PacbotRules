@@ -62,16 +62,11 @@ public class AzureMFACheck extends BaseRule {
 		Map<String, String> ruleParamIam = new HashMap<>();
 		ruleParamIam.putAll(ruleParam);
 
-
-		Map<String, Object> map = null;
-
 		String severity = ruleParam.get(PacmanRuleConstants.SEVERITY);
 		String category = ruleParam.get(PacmanRuleConstants.CATEGORY);
 
 		MDC.put(PacmanSdkConstants.EXECUTION_ID, ruleParam.get(PacmanSdkConstants.EXECUTION_ID));
 		MDC.put(PacmanSdkConstants.RULE_ID, ruleParam.get(PacmanSdkConstants.RULE_ID));
-
-		Annotation annotation = null;
 
 		if (!PacmanUtils.doesAllHaveValue(severity, category)) {
 			logger.info(PacmanRuleConstants.MISSING_CONFIGURATION);
